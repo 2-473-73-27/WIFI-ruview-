@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Device Location Map</title>
+    <!-- Leaflet CSS for Map Rendering -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .header {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #28a745;
+        }
+        #map {
+            height: 550px;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>Live Device Tracking Dashboard</h2>
+        <p>Enable location access to register this device on the live network map.</p>
+        <button class="btn" onclick="enableLocation()">Open Location & Connect</button>
+        <div id="status"></div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Leaflet JS Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Unique session ID for this device
+        let deviceId = localStorage.getItem('device_id');
+        if (!deviceId) {
+            deviceId = 'dev_' + Math.random().toString(36).substring(2, 9);
+            localStorage.setItem('device_id', deviceId);
+        }
+
+        // Initialize Map
+        const map = L.map('map').setView([30.3753, 69.3451], 6);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const markers = {};
+
+        // Request location and send updates to backend
+        function enableLocation() {
+            const statusDiv = document.getElementById('status');
+
+            if (!navigator.geolocation) {
+                statusDiv.innerText = "Geolocation is not supported by your browser.";
+                return;
+            }
+
+            statusDiv.innerText = "Requesting position...";
+
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+
+                    statusDiv.innerText = "Status: Online & Live 💯";
+
+                    // Center map on client location initially
+                    map.setView([lat, lng], 13);
+
+                    // Send coordinates to PHP/Python API
+                    fetch('api.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            deviceId: deviceId,
+                            name: "Device (" + deviceId.slice(-4) + ")",
+                            lat: lat,
+                            lng: lng,
+                            signalPercentage: 95
+                        })
+                    }).catch(err => console.error("API update error:", err));
+                },
+                (error) => {
+                    statusDiv.innerText = "Location access denied or unavailable.";
+                },
+                { enableHighAccuracy: true }
+            );
+        }
+
+        // Poll server every 3 seconds to fetch all active devices on the map
+        async function loadNetworkDevices() {
+            try {
+                const response = await fetch('api.php');
+                const data = await response.json();
+
+                Object.values(data).forEach(dev => {
+                    const popupContent = `
+                        <b>${dev.name}</b><br>
+                        Signal: ${dev.signal}%<br>
+                        Last Active: ${dev.lastActive}
+                    `;
+
+                    if (markers[dev.deviceId]) {
+                        markers[dev.deviceId].setLatLng([dev.lat, dev.lng]);
+                        markers[dev.deviceId].getPopup().setContent(popupContent);
+                    } else {
+                        markers[dev.deviceId] = L.marker([dev.lat, dev.lng])
+                            .addTo(map)
+                            .bindPopup(popupContent);
+                    }
+                });
+            } catch (e) {
+                console.error("Failed to load map data:", e);
+            }
+        }
+
+        setInterval(loadNetworkDevices, 3000);
+        loadNetworkDevices();
+    </script>
+</body>
+</html>
