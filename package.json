@@ -1,13 +1,14 @@
 {
-  "name": "sair-hosting",
+  "name": "sair-whatsapp-bot",
   "version": "1.0.0",
-  "description": "SA!R Localhost Maker & Script Hosting",
-  "main": "server.js",
+  "description": "Premium 50+ Feature WhatsApp Bot",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "express-fileupload": "^1.5.0"
+    "@whiskeysockets/baileys": "^6.6.0",
+    "pino": "^8.19.0",
+    "qrcode-terminal": "^0.12.0"
   }
 }
