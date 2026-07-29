@@ -1,50 +1,143 @@
-const express = require('express');
-const os = require('os');
-const https = require('https');
-
-const app = express();
-const PORT = 3000;
-
-app.use(express.static('.'));
-
-// Helper to get local Hotspot / Wi-Fi network interface IP
-function getLocalNetworkIPs() {
-  const interfaces = os.networkInterfaces();
-  const addresses = [];
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      // Filter out loopback (127.0.0.1) and non-IPv4 addresses
-      if (iface.family === 'IPv4' && !iface.internal) {
-        addresses.push({ interface: name, ip: iface.address });
-      }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotspot & Mobile IP Tracker</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --text: #c9d1d9;
     }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 650px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h2 { color: #fff; margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    button {
+      background: var(--green);
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      font-size: 1rem;
+    }
+    button:hover { opacity: 0.9; }
+    .box {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 10px;
+      font-family: monospace;
+    }
+    .label { color: #8b949e; font-size: 0.85rem; display: block; margin-bottom: 4px; }
+    .val { color: var(--accent); font-weight: bold; font-size: 1.05rem; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <h2>Hotspot Connection & Device Tracking</h2>
+    <button onclick="fetchFullDetails()">Fetch Mobile IP & Physical Address</button>
+  </div>
+
+  <div id="results" class="card" style="display: none;">
+    <h2>Network & Location Report</h2>
+    
+    <div class="box">
+      <span class="label">Mobile Public IP Address (WAN):</span>
+      <span class="val" id="publicIp">Loading...</span>
+    </div>
+
+    <div class="box">
+      <span class="label">Hotspot Gateway / Local Network Interface:</span>
+      <span class="val" id="localIp">Loading...</span>
+    </div>
+
+    <div class="box">
+      <span class="label">Connected Device / Friend's Local IP:</span>
+      <span class="val" id="friendIp">Loading...</span>
+    </div>
+
+    <div class="box">
+      <span class="label">Original GPS Coordinates:</span>
+      <span class="val" id="coords">Loading...</span>
+    </div>
+
+    <div class="box">
+      <span class="label">Exact Street Address:</span>
+      <span class="val" id="fullAddress" style="color: #fff;">Resolving location...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+async function fetchFullDetails() {
+  document.getElementById('results').style.display = 'block';
+
+  // 1. Fetch IP Details from Local Node Server
+  try {
+    const res = await fetch('/api/network-info');
+    const data = await res.json();
+    
+    document.getElementById('publicIp').innerText = data.publicMobileIp;
+    document.getElementById('friendIp').innerText = data.connectedFriendIp;
+
+    if(data.localHotspotGateway.length > 0) {
+      document.getElementById('localIp').innerText = data.localHotspotGateway.map(i => `${i.interface}: ${i.ip}`).join(' | ');
+    } else {
+      document.getElementById('localIp').innerText = '192.168.43.1 (Default Android/iOS Hotspot Subnet)';
+    }
+  } catch (err) {
+    document.getElementById('publicIp').innerText = "Run server.js to view network stats";
   }
-  return addresses;
+
+  // 2. Fetch High-Accuracy Physical Address via Geolocation + Reverse Geocoding
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      document.getElementById('coords').innerText = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
+
+      // Reverse geocode lat/lon to full physical address
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+        const geoData = await geoRes.json();
+        document.getElementById('fullAddress').innerText = geoData.display_name || "Address found, but details restricted.";
+      } catch (e) {
+        document.getElementById('fullAddress').innerText = "Unable to fetch street address details.";
+      }
+    }, (error) => {
+      document.getElementById('coords').innerText = "Location access denied.";
+      document.getElementById('fullAddress').innerText = "Permission required for physical address.";
+    }, { enableHighAccuracy: true });
+  }
 }
+</script>
 
-// Endpoint to return Mobile Public IP and Local Hotspot IP details
-app.get('/api/network-info', (req, res) => {
-  // Fetch Public WAN IP from external resolver
-  https.get('https://api.ipify.org?format=json', (apiRes) => {
-    let data = '';
-    apiRes.on('data', chunk => data += chunk);
-    apiRes.on('end', () => {
-      const publicIp = JSON.parse(data).ip;
-      
-      // Get incoming client IP (your friend's IP on your hotspot network)
-      const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-      res.json({
-        publicMobileIp: publicIp,
-        localHotspotGateway: getLocalNetworkIPs(),
-        connectedFriendIp: clientIp
-      });
-    });
-  }).on('error', (err) => {
-    res.status(500).json({ error: 'Failed to resolve public IP' });
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Hotspot Tracking Server running at http://localhost:${PORT}`);
-});
+</body>
+</html>
