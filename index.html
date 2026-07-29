@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile Tracking & Connection Panel</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #238636;
+      --text: #c9d1d9;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 650px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    h2 { margin-top: 0; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    button {
+      background: #21262d;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+    button:hover { background: #30363d; border-color: var(--accent); }
+    .btn-green { background: var(--green); color: #fff; border: none; }
+    .btn-green:hover { background: #2ea043; }
+    .status-box {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 6px;
+      background: #0d1117;
+      border: 1px dashed var(--border);
+      font-family: monospace;
+    }
+    .hidden { display: none; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .metric { background: #21262d; padding: 10px; border-radius: 6px; }
+    .metric label { font-size: 0.8em; color: #8b949e; display: block; }
+    .metric span { font-size: 1.1em; font-weight: bold; color: #fff; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Section 1: Mobile Tracking Dashboard -->
+  <div class="card">
+    <h2>Mobile Location Tracker</h2>
+    <button id="connectBtn" onclick="toggleTracking()">Connect Mobile</button>
+    
+    <div id="trackingDetails" class="hidden">
+      <div class="status-box" id="deviceInfo">Detecting local network device...</div>
+      
+      <div class="grid">
+        <div class="metric">
+          <label>HD Location Mode</label>
+          <span id="hdStatus">Active (GPS + Network)</span>
+        </div>
+        <div class="metric">
+          <label>Estimated Distance</label>
+          <span id="distanceVal">Calculating...</span>
+        </div>
+      </div>
+
+      <div class="status-box" style="margin-top:10px;">
+        <strong>Local Address:</strong> <br>
+        <span id="addressVal">Fetching high-precision coordinates...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Key Generator & Multi-Member Sync -->
+  <div class="card">
+    <h2>2-Member Connection Key Generator</h2>
+    <button class="btn-green" onclick="generateKey()">Generate Key</button>
+    
+    <div id="keyBox" class="status-box hidden">
+      <div><strong>10-Word Access Key:</strong></div>
+      <p id="keyDisplay" style="color: var(--accent); word-spacing: 4px;"></p>
+      <div id="syncStatus" style="color: #8b949e; font-size: 0.9em;">Waiting for Member 2 to connect...</div>
+    </div>
+
+    <div id="connectedAddressCard" class="card hidden" style="margin-top: 15px; background: #0d1117;">
+      <h3 style="color: #3fb950; margin-top:0;">Connection Established Successfully</h3>
+      <p>Both members authenticated. Shared Tracking Feed unlocked.</p>
+      <div id="sharedLocation"><strong>Shared Target Address:</strong> Syncing live data...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Word pool for 10-word key generation
+  const words = ["alpha", "beacon", "delta", "vector", "signal", "orbit", "cipher", "pulse", "node", "nexus", "matrix", "vertex"];
+
+  // Geolocation & Proximity Calculation
+  function toggleTracking() {
+    const details = document.getElementById('trackingDetails');
+    const connectBtn = document.getElementById('connectBtn');
+    
+    if (details.classList.contains('hidden')) {
+      details.classList.remove('hidden');
+      connectBtn.innerText = "Disconnect Mobile";
+      connectBtn.style.color = "#f85149";
+      
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(updateLocation, handleGeoError);
+      } else {
+        document.getElementById('deviceInfo').innerText = "Geolocation not supported by this browser.";
+      }
+    } else {
+      details.classList.add('hidden');
+      connectBtn.innerText = "Connect Mobile";
+      connectBtn.style.color = "var(--accent)";
+    }
+  }
+
+  function updateLocation(position) {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    
+    // Fixed target location for testing distance calculation (e.g., local server center)
+    const targetLat = lat + 0.0035; 
+    const targetLon = lon + 0.0021;
+    
+    const distanceKm = haversineDistance(lat, lon, targetLat, targetLon);
+    
+    document.getElementById('deviceInfo').innerText = `Device Connected: Lat ${lat.toFixed(4)}, Lon ${lon.toFixed(4)}`;
+    document.getElementById('distanceVal').innerText = `${(distanceKm * 1000).toFixed(0)} meters away`;
+    document.getElementById('addressVal').innerText = `Latitude: ${lat.toFixed(5)}, Longitude: ${lon.toFixed(5)} (HD Local Grid)`;
+  }
+
+  function handleGeoError(err) {
+    document.getElementById('deviceInfo').innerText = "Location permission denied or unavailable.";
+  }
+
+  // Haversine formula to compute physical distance in kilometers
+  function haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  // Key Generation & Dual-Member Simulation
+  function generateKey() {
+    let generated = [];
+    for(let i = 0; i < 10; i++) {
+      generated.push(words[Math.floor(Math.random() * words.length)]);
+    }
+    const keyString = generated.join(' ');
+    
+    document.getElementById('keyBox').classList.remove('hidden');
+    document.getElementById('keyDisplay').innerText = keyString;
+    document.getElementById('syncStatus').innerText = "Member 1 connected. Waiting for Member 2...";
+    
+    // Simulate Member 2 connecting after 3 seconds
+    setTimeout(() => {
+      document.getElementById('syncStatus').innerText = "2/2 Members Connected via Key!";
+      document.getElementById('syncStatus').style.color = "#3fb950";
+      
+      const successCard = document.getElementById('connectedAddressCard');
+      successCard.classList.remove('hidden');
+      document.getElementById('sharedLocation').innerHTML = `<strong>Connected Target Address:</strong> Active Stream | Sector 4B Local Grid`;
+    }, 3000);
+  }
+</script>
+
+</body>
+</html>
