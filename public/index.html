@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Well Come to SA!R Hosting</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; }
+    .container { background: #1e1e1e; padding: 30px; border-radius: 8px; width: 100%; max-width: 500px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+    h1, h2 { text-align: center; color: #00d2ff; }
+    input[type="text"], input[type="password"], input[type="file"] { width: 100%; padding: 10px; margin: 10px 0; border-radius: 4px; border: 1px solid #333; background: #2a2a2a; color: #fff; box-sizing: border-box; }
+    button { width: 100%; padding: 10px; background: #00d2ff; border: none; color: #121212; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+    button:hover { background: #0099cc; color: #fff; }
+    .hidden { display: none; }
+    .link-box { background: #2a2a2a; padding: 10px; margin-top: 15px; border-radius: 4px; word-break: break-all; border: 1px solid #00d2ff; }
+    ul { list-style: none; padding: 0; }
+    li { background: #2a2a2a; margin: 5px 0; padding: 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- LOGIN PAGE -->
+  <div id="login-page">
+    <h1>Well Come to SA!R Hosting</h1>
+    <label>Username:</label>
+    <input type="text" id="username" placeholder="Enter username">
+    <label>Password:</label>
+    <input type="password" id="password" placeholder="Enter password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- DASHBOARD PAGE -->
+  <div id="dashboard-page" class="hidden">
+    <h2>SA!R Hosting Dashboard</h2>
+    
+    <form id="upload-form">
+      <label>Enter IP Link / Custom Target:</label>
+      <input type="text" id="ip-link" placeholder="e.g. 192.168.1.100 or my-site">
+      
+      <label>Upload Web File (.html):</label>
+      <input type="file" id="file-input" name="websiteFile" accept=".html" required>
+      
+      <button type="submit">Upload & Host Worldwide</button>
+    </form>
+
+    <div id="hosting-section" class="hidden">
+      <h3>Hosting Output</h3>
+      <p><strong>Worldwide Public Domain:</strong></p>
+      <div class="link-box"><a id="public-link" href="#" target="_blank">Generating link...</a></div>
+
+      <h4>Host Files:</h4>
+      <ul id="file-list"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  function login() {
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+    
+    // Simple authentication check
+    if (user !== "" && pass !== "") {
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('dashboard-page').classList.remove('hidden');
+    } else {
+      alert("Please enter a username and password.");
+    }
+  }
+
+  document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('file-input');
+    const ipLink = document.getElementById('ip-link').value;
+
+    if (!fileInput.files[0]) return alert("Please select a file.");
+
+    const formData = new FormData();
+    formData.append('websiteFile', fileInput.files[0]);
+    formData.append('ipLink', ipLink);
+
+    const response = await fetch('/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      document.getElementById('hosting-section').classList.remove('hidden');
+      const publicLink = document.getElementById('public-link');
+      publicLink.href = result.worldWideUrl;
+      publicLink.innerText = result.worldWideUrl;
+
+      const fileList = document.getElementById('file-list');
+      fileList.innerHTML = `<li>📄 ${result.fileName} (Associated IP/Tag: ${result.ipLink || 'None'})</li>`;
+    } else {
+      alert("Error hosting site: " + result.message);
+    }
+  });
+</script>
+
+</body>
+  </html>
+  
