@@ -5,110 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Well Come to SA!R Hosting</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #121212;
-      color: #ffffff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-    }
-    .container {
-      background: #1e1e1e;
-      padding: 30px;
-      border-radius: 8px;
-      width: 90%;
-      max-width: 400px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      text-align: center;
-    }
-    h1, h2 { color: #00d2ff; }
-    input[type="text"], input[type="password"], input[type="file"] {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 4px;
-      border: 1px solid #333;
-      background: #2a2a2a;
-      color: #fff;
-      box-sizing: border-box;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      background: #00d2ff;
-      border: none;
-      color: #121212;
-      font-weight: bold;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    button:hover { background: #0099cc; color: #fff; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .card { background: #1e293b; border: 1px solid #334155; padding: 30px; border-radius: 12px; width: 100%; max-width: 480px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+    h1, h2 { text-align: center; color: #38bdf8; margin-top: 0; }
+    label { display: block; margin-top: 15px; font-weight: 600; font-size: 14px; color: #cbd5e1; }
+    input[type="text"], input[type="password"], input[type="file"] { width: 100%; padding: 12px; margin-top: 6px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 14px; }
+    button { width: 100%; padding: 12px; background: #0284c7; border: none; color: #fff; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 20px; font-size: 16px; transition: background 0.2s; }
+    button:hover { background: #0369a1; }
     .hidden { display: none; }
-    .link-box {
-      background: #2a2a2a;
-      padding: 10px;
-      margin-top: 15px;
-      border-radius: 4px;
-      word-break: break-all;
-      border: 1px solid #00d2ff;
-    }
+    .result-box { background: #0f172a; padding: 15px; margin-top: 20px; border-radius: 6px; border: 1px solid #38bdf8; word-break: break-all; }
+    .result-box a { color: #38bdf8; text-decoration: none; font-weight: bold; }
+    .result-box a:hover { text-decoration: underline; }
+    ul { list-style: none; padding: 0; margin-top: 10px; }
+    li { background: #334155; padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 14px; }
   </style>
 </head>
 <body>
 
-<div class="container">
+<div class="card">
   <!-- LOGIN PAGE -->
-  <div id="login-page">
+  <div id="login-section">
     <h1>Well Come to SA!R Hosting</h1>
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-    <button onclick="login()">Login</button>
+    <label>Username:</label>
+    <input type="text" id="username" placeholder="Enter username">
+    <label>Password:</label>
+    <input type="password" id="password" placeholder="Enter password">
+    <button onclick="handleLogin()">Login</button>
   </div>
 
   <!-- DASHBOARD PAGE -->
-  <div id="dashboard-page" class="hidden">
+  <div id="dashboard-section" class="hidden">
     <h2>SA!R Hosting Dashboard</h2>
-    <input type="text" id="ip-link" placeholder="Enter IP / Domain">
-    <input type="file" id="file-input" accept=".html,.sh">
-    <button onclick="uploadFile()">Upload</button>
+    
+    <label>Enter IP / Target Link:</label>
+    <input type="text" id="ip-link" placeholder="e.g. 62.833.88.32">
 
-    <div id="hosting-section" class="hidden">
-      <h3>Hosting Output</h3>
-      <div class="link-box"><a id="public-link" href="#" target="_blank">View File</a></div>
+    <label>Upload File (.html or .sh):</label>
+    <input type="file" id="file-input" accept=".html,.sh,.txt">
+
+    <button onclick="handleUpload()">Upload & Generate IP Link</button>
+
+    <div id="hosting-output" class="hidden">
+      <div class="result-box">
+        <span style="color: #94a3b8; font-size: 12px;">GLOBAL NUMERIC LINK:</span><br>
+        <a id="generated-link" href="#" target="_blank">---</a>
+      </div>
+
+      <label>Host Files:</label>
+      <ul id="file-list"></ul>
     </div>
   </div>
 </div>
 
 <script>
-  function login() {
-    const user = document.getElementById('username').value;
-    const pass = document.getElementById('password').value;
-    if (user && pass) {
-      document.getElementById('login-page').classList.add('hidden');
-      document.getElementById('dashboard-page').classList.remove('hidden');
+  function handleLogin() {
+    const user = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value.trim();
+
+    if (user !== "" && pass !== "") {
+      document.getElementById('login-section').classList.add('hidden');
+      document.getElementById('dashboard-section').classList.remove('hidden');
     } else {
-      alert("Please enter credentials.");
+      alert("Please enter a username and password.");
     }
   }
 
-  function uploadFile() {
+  async function handleUpload() {
     const fileInput = document.getElementById('file-input');
-    if (fileInput.files.length === 0) {
-      alert("Please select a file first.");
+    const ipLink = document.getElementById('ip-link').value.trim();
+
+    if (!fileInput.files[0]) {
+      alert("Please select a file to upload.");
       return;
     }
-    const fileName = fileInput.files[0].name;
-    document.getElementById('hosting-section').classList.remove('hidden');
-    const link = document.getElementById('public-link');
-    link.innerText = "Loaded: " + fileName;
-    link.href = "#";
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('ipLink', ipLink);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        document.getElementById('hosting-output').classList.remove('hidden');
+        const linkElem = document.getElementById('generated-link');
+        linkElem.href = data.url;
+        linkElem.innerText = data.url;
+
+        const fileList = document.getElementById('file-list');
+        fileList.innerHTML = `<li>📄 ${data.fileName} &nbsp;|&nbsp; Tag: <strong>${data.numericId}</strong></li>`;
+      } else {
+        alert("Upload failed: " + data.message);
+      }
+    } catch (err) {
+      alert("Error uploading file to server.");
+    }
   }
 </script>
 
 </body>
-  </html>
-  
+</html>
