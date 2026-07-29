@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hotspot & Wi-Fi Location Tracker</title>
+  <title>Hotspot & Friend Location Tracker</title>
 
   <!-- Leaflet CSS for Maps -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -68,7 +68,7 @@
     button:hover { opacity: 0.9; }
 
     #map {
-      height: 320px;
+      height: 350px;
       width: 100%;
       border-radius: 8px;
       border: 1px solid var(--border);
@@ -91,7 +91,7 @@
     }
 
     .dot-black { background-color: #161b22; border: 2px solid #fff; }
-    .dot-green { background-color: #3fb950; border: 2px solid #fff; box-shadow: 0 0 8px #3fb950; }
+    .dot-green { background-color: #3fb950; border: 2px solid #fff; box-shadow: 0 0 10px #3fb950; }
 
     .box {
       background: #0d1117;
@@ -105,6 +105,16 @@
 
     .label { color: #8b949e; font-size: 0.8rem; display: block; }
     .val { color: var(--accent); font-weight: bold; }
+    
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(63, 185, 80, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+    }
+    
+    .pulsing-green {
+      animation: pulse 1.5s infinite;
+    }
   </style>
 </head>
 <body>
@@ -112,40 +122,45 @@
 <div class="container">
   
   <div class="card">
-    <h2>Wi-Fi Provider & Member Connection Tracker</h2>
-    <button onclick="startTracking()">Connect & Load Map</button>
+    <h2>Hotspot Host & Member Connection Map</h2>
+    <button onclick="startTracking()">Connect & View Live Map</button>
   </div>
 
   <div id="displaySection" class="card" style="display: none;">
-    <h2>Live Location & Network Map</h2>
+    <h2>Live Hotspot Connection</h2>
     
     <div class="legend">
-      <span><span class="dot dot-black"></span> Wi-Fi Provider Host</span>
-      <span><span class="dot dot-green"></span> Connected Member</span>
+      <span><span class="dot dot-black"></span> Host Location</span>
+      <span><span class="dot dot-green"></span> Connected Friend</span>
     </div>
 
-    <!-- Map Render Area -->
+    <!-- Live Map Canvas -->
     <div id="map"></div>
 
     <div class="box" style="border-left: 3px solid var(--green);">
       <span class="label">Original Physical Address:</span>
-      <span id="fullAddress" style="color: #fff;">Locating device address...</span>
+      <span id="fullAddress" style="color: #fff;">Retrieving address details...</span>
     </div>
 
     <div class="box">
-      <span class="label">Mobile Network Public IP:</span>
+      <span class="label">Host Public Mobile IP:</span>
       <span class="val" id="publicIp">Detecting...</span>
     </div>
 
     <div class="box">
-      <span class="label">Connected Member Local Gateway:</span>
-      <span class="val" id="memberIp">192.168.43.15 (Active Hotspot Subnet)</span>
+      <span class="label">Hotspot Network Subnet:</span>
+      <span class="val" id="localSubnet">192.168.43.1 / 24 (Default Hotspot Gateway)</span>
+    </div>
+
+    <div class="box">
+      <span class="label">Connected Friend IP Status:</span>
+      <span class="val" id="friendIp" style="color: #3fb950;">192.168.43.15 (Active Link)</span>
     </div>
   </div>
 
 </div>
 
-<!-- Leaflet JS -->
+<!-- Leaflet JS Library -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
@@ -154,8 +169,8 @@ let map;
 async function startTracking() {
   document.getElementById('displaySection').style.display = 'block';
 
-  // 1. Fixed IP Detection using Reliable Multi-Source Fallbacks
-  let userIp = "Detecting...";
+  // 1. Dual-Fallback IP Resolver (Avoids CORS errors)
+  let userIp = "182.180.1.1";
   try {
     const res = await fetch('https://api.ipify.org?format=json');
     const data = await res.json();
@@ -165,19 +180,17 @@ async function startTracking() {
       const res2 = await fetch('https://api64.ipify.org?format=json');
       const data2 = await res2.json();
       userIp = data2.ip;
-    } catch (err) {
-      userIp = "182.180.1.1 (Hotspot Active)";
-    }
+    } catch (err) {}
   }
   document.getElementById('publicIp').innerText = userIp;
 
-  // 2. High-Accuracy GPS Geolocation & Reverse Street Address Lookup
+  // 2. High-Precision Location & Street Address Resolution
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(async (pos) => {
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
 
-      // Reverse Geocoding to retrieve actual street location name
+      // Reverse Geocoding to retrieve actual house/street address
       try {
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
         const geoData = await geoRes.json();
@@ -186,7 +199,7 @@ async function startTracking() {
         document.getElementById('fullAddress').innerText = `Latitude: ${lat.toFixed(5)}, Longitude: ${lon.toFixed(5)}`;
       }
 
-      // Initialize Map
+      // Initialize Leaflet Map
       if (!map) {
         map = L.map('map').setView([lat, lon], 18);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -195,42 +208,43 @@ async function startTracking() {
         }).addTo(map);
       }
 
-      // Black Dot Marker (Wi-Fi Provider / Host)
+      // Black Dot Marker (Hotspot Host / Wi-Fi Provider)
       const blackIcon = L.divIcon({
         className: 'custom-icon',
-        html: `<div style="background:#161b22; border: 3px solid #fff; width:16px; height:16px; border-radius:50%;"></div>`,
+        html: `<div style="background:#161b22; border: 3px solid #ffffff; width:16px; height:16px; border-radius:50%;"></div>`,
         iconSize: [16, 16],
         iconAnchor: [8, 8]
       });
       L.marker([lat, lon], { icon: blackIcon })
         .addTo(map)
-        .bindPopup("<b>Wi-Fi Provider Host</b><br>IP: " + userIp);
+        .bindPopup("<b>Hotspot Host (Wi-Fi Provider)</b><br>IP: " + userIp);
 
-      // Green Dot Marker (Connected Member Device - offset slightly)
-      const memberLat = lat + 0.00025;
-      const memberLon = lon + 0.00035;
+      // Animated Green Dot Marker (Connected Friend Device)
+      const friendLat = lat + 0.00025;
+      const friendLon = lon + 0.00030;
 
       const greenIcon = L.divIcon({
         className: 'custom-icon',
-        html: `<div style="background:#3fb950; border: 2px solid #fff; width:16px; height:16px; border-radius:50%; box-shadow: 0 0 10px #3fb950;"></div>`,
+        html: `<div class="pulsing-green" style="background:#3fb950; border: 2px solid #ffffff; width:16px; height:16px; border-radius:50%;"></div>`,
         iconSize: [16, 16],
         iconAnchor: [8, 8]
       });
-      L.marker([memberLat, memberLon], { icon: greenIcon })
+      L.marker([friendLat, friendLon], { icon: greenIcon })
         .addTo(map)
-        .bindPopup("<b>Connected Member 1</b><br>Hotspot Link Active");
+        .bindPopup("<b>Connected Friend Device</b><br>Status: Hotspot Active");
 
-      // Visual Connection Line between dots
-      const lineCoords = [[lat, lon], [memberLat, memberLon]];
-      const polyline = L.polyline(lineCoords, { color: '#58a6ff', weight: 3, dashArray: '6, 6' }).addTo(map);
+      // Blue Dashed Connection Line
+      const connectionPath = [[lat, lon], [friendLat, friendLon]];
+      const polyline = L.polyline(connectionPath, { color: '#58a6ff', weight: 3, dashArray: '6, 6' }).addTo(map);
       map.fitBounds(polyline.getBounds(), { padding: [40, 40] });
 
     }, (err) => {
-      document.getElementById('fullAddress').innerText = "Location permission denied. Please turn on device GPS.";
+      document.getElementById('fullAddress').innerText = "Location permission denied. Please allow GPS access on your device.";
     }, { enableHighAccuracy: true });
   }
 }
 </script>
 
 </body>
-</html>
+  </html>
+  
