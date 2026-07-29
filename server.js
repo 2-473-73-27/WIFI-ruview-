@@ -48,4 +48,3 @@ app.get('/api/network-info', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Hotspot Tracking Server running at http://localhost:${PORT}`);
 });
-           
