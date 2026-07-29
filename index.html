@@ -3,155 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Device Location Map</title>
-    <!-- Leaflet CSS for Map Rendering -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Local Network Diagnostics</title>
     <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-color: #0284c7;
+            --success-color: #22c55e;
+            --border-color: #334155;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
             padding: 20px;
         }
-        .header {
-            background: #1e1e1e;
-            padding: 20px;
+
+        .container {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: var(--accent-color);
+        }
+
+        p.subtitle {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background-color: #0f172a;
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            margin-bottom: 15px;
-            text-align: center;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+
+        .metric-title {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            background-color: rgba(34, 197, 94, 0.2);
+            color: var(--success-color);
+        }
+
         .btn {
-            background-color: #007bff;
+            display: block;
+            width: 100%;
+            background-color: var(--accent-color);
             color: white;
             border: none;
-            padding: 10px 20px;
-            font-size: 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .btn:hover {
-            background-color: #0056b3;
-        }
-        #status {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #28a745;
-        }
-        #map {
-            height: 550px;
-            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 600;
             border-radius: 8px;
-            border: 1px solid #333;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn:hover {
+            background-color: #0369a1;
         }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h2>Live Device Tracking Dashboard</h2>
-        <p>Enable location access to register this device on the live network map.</p>
-        <button class="btn" onclick="enableLocation()">Open Location & Connect</button>
-        <div id="status"></div>
+    <div class="container">
+        <h2>Network Diagnostics</h2>
+        <p class="subtitle">Local connection state for this session.</p>
+
+        <div class="metric-card">
+            <span class="metric-title">Connection Status</span>
+            <span class="status-badge" id="onlineStatus">Online</span>
+        </div>
+
+        <div class="metric-card">
+            <span class="metric-title">Effective Network Type</span>
+            <span class="metric-value" id="networkType">Checking...</span>
+        </div>
+
+        <div class="metric-card">
+            <span class="metric-title">Estimated Downlink</span>
+            <span class="metric-value" id="downlinkSpeed">Checking...</span>
+        </div>
+
+        <div class="metric-card">
+            <span class="metric-title">Round-Trip Time (RTT)</span>
+            <span class="metric-value" id="rttLatency">Checking...</span>
+        </div>
+
+        <button class="btn" onclick="refreshMetrics()">Run Speed Test / Refresh</button>
     </div>
 
-    <!-- Map Container -->
-    <div id="map"></div>
-
-    <!-- Leaflet JS Library -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Unique session ID for this device
-        let deviceId = localStorage.getItem('device_id');
-        if (!deviceId) {
-            deviceId = 'dev_' + Math.random().toString(36).substring(2, 9);
-            localStorage.setItem('device_id', deviceId);
-        }
+        function refreshMetrics() {
+            const statusBadge = document.getElementById('onlineStatus');
+            const networkType = document.getElementById('networkType');
+            const downlinkSpeed = document.getElementById('downlinkSpeed');
+            const rttLatency = document.getElementById('rttLatency');
 
-        // Initialize Map
-        const map = L.map('map').setView([30.3753, 69.3451], 6);
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-
-        const markers = {};
-
-        // Request location and send updates to backend
-        function enableLocation() {
-            const statusDiv = document.getElementById('status');
-
-            if (!navigator.geolocation) {
-                statusDiv.innerText = "Geolocation is not supported by your browser.";
-                return;
+            // Check basic online status
+            if (navigator.onLine) {
+                statusBadge.textContent = "Online";
+                statusBadge.style.backgroundColor = "rgba(34, 197, 94, 0.2)";
+                statusBadge.style.color = "#22c55e";
+            } else {
+                statusBadge.textContent = "Offline";
+                statusBadge.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
+                statusBadge.style.color = "#ef4444";
             }
 
-            statusDiv.innerText = "Requesting position...";
+            // Access Network Information API if supported by browser
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
 
-            navigator.geolocation.watchPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-
-                    statusDiv.innerText = "Status: Online & Live 💯";
-
-                    // Center map on client location initially
-                    map.setView([lat, lng], 13);
-
-                    // Send coordinates to PHP/Python API
-                    fetch('api.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            deviceId: deviceId,
-                            name: "Device (" + deviceId.slice(-4) + ")",
-                            lat: lat,
-                            lng: lng,
-                            signalPercentage: 95
-                        })
-                    }).catch(err => console.error("API update error:", err));
-                },
-                (error) => {
-                    statusDiv.innerText = "Location access denied or unavailable.";
-                },
-                { enableHighAccuracy: true }
-            );
-        }
-
-        // Poll server every 3 seconds to fetch all active devices on the map
-        async function loadNetworkDevices() {
-            try {
-                const response = await fetch('api.php');
-                const data = await response.json();
-
-                Object.values(data).forEach(dev => {
-                    const popupContent = `
-                        <b>${dev.name}</b><br>
-                        Signal: ${dev.signal}%<br>
-                        Last Active: ${dev.lastActive}
-                    `;
-
-                    if (markers[dev.deviceId]) {
-                        markers[dev.deviceId].setLatLng([dev.lat, dev.lng]);
-                        markers[dev.deviceId].getPopup().setContent(popupContent);
-                    } else {
-                        markers[dev.deviceId] = L.marker([dev.lat, dev.lng])
-                            .addTo(map)
-                            .bindPopup(popupContent);
-                    }
-                });
-            } catch (e) {
-                console.error("Failed to load map data:", e);
+            if (conn) {
+                networkType.textContent = conn.effectiveType ? conn.effectiveType.toUpperCase() : "Unknown";
+                downlinkSpeed.textContent = conn.downlink ? `${conn.downlink} Mbps` : "N/A";
+                rttLatency.textContent = conn.rtt ? `${conn.rtt} ms` : "N/A";
+            } else {
+                networkType.textContent = "API Not Supported";
+                downlinkSpeed.textContent = "N/A";
+                rttLatency.textContent = "N/A";
             }
         }
 
-        setInterval(loadNetworkDevices, 3000);
-        loadNetworkDevices();
+        // Run on page load
+        window.addEventListener('load', refreshMetrics);
+        window.addEventListener('online', refreshMetrics);
+        window.addEventListener('offline', refreshMetrics);
     </script>
 </body>
-</html>
+                </html>
+                
