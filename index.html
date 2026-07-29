@@ -1,175 +1,267 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Network Diagnostics</title>
-    <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-color: #f8fafc;
-            --accent-color: #0284c7;
-            --success-color: #22c55e;
-            --border-color: #334155;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Network Traffic Operations</title>
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+<style>
+:root {
+    --bg-main: #060b11;
+    --card-bg: rgba(15, 25, 40, 0.7);
+    --accent-blue: #00f0ff;
+    --accent-green: #00ff88;
+    --border-color: rgba(0, 240, 255, 0.2);
+    --text-muted: #8a99ad;
+}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
 
-        .container {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 30px;
-            max-width: 480px;
-            width: 100%;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-        }
+body {
+    background: var(--bg-main);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
 
-        h2 {
-            font-size: 1.5rem;
-            margin-bottom: 8px;
-            color: var(--accent-color);
-        }
+/* Glassmorphism Header */
+.header {
+    height: 70px;
+    background: rgba(10, 18, 30, 0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 30px;
+    border-bottom: 1px solid var(--border-color);
+}
 
-        p.subtitle {
-            font-size: 0.875rem;
-            color: #94a3b8;
-            margin-bottom: 24px;
-        }
+.logo-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
 
-        .metric-card {
-            background-color: #0f172a;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-green);
+}
 
-        .metric-title {
-            font-size: 0.875rem;
-            color: #94a3b8;
-        }
+.logo {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #fff;
+}
 
-        .metric-value {
-            font-size: 1rem;
-            font-weight: 600;
-        }
+.logo span {
+    color: var(--accent-blue);
+}
 
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            background-color: rgba(34, 197, 94, 0.2);
-            color: var(--success-color);
-        }
+.time {
+    font-family: monospace;
+    font-size: 16px;
+    color: var(--accent-blue);
+    background: rgba(0, 240, 255, 0.05);
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
 
-        .btn {
-            display: block;
-            width: 100%;
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: background-color 0.2s ease;
-        }
+/* Grid Layout for Metrics */
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 25px;
+}
 
-        .btn:hover {
-            background-color: #0369a1;
-        }
-    </style>
+.card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 240, 255, 0.5);
+}
+
+.card h2 {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.card span {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+/* Network Visual Canvas */
+.map-container {
+    margin: 0 25px 25px 25px;
+    flex: 1;
+    min-height: 450px;
+    border-radius: 16px;
+    background: radial-gradient(circle at center, #0e1d2f 0%, #060b11 100%);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
+}
+
+/* Central Hub Node */
+.central-node {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: var(--accent-green);
+    border-radius: 50%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 25px var(--accent-green);
+    z-index: 10;
+}
+
+.central-node::after {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    border: 2px solid var(--accent-green);
+    border-radius: 50%;
+    animation: pulse 2s infinite ease-out;
+    opacity: 0;
+}
+
+/* Vector Lines */
+.line {
+    position: absolute;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-blue));
+    transform-origin: left center;
+    opacity: 0.6;
+}
+
+/* Endpoint Nodes */
+.dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    box-shadow: 0 0 15px var(--accent-blue);
+    transform: translate(-50%, -50%);
+}
+
+/* Grid Overlay Effect */
+.grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+}
+
+/* Keyframe Animations */
+@keyframes pulse {
+    0% { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+</style>
 </head>
+
 <body>
 
-    <div class="container">
-        <h2>Network Diagnostics</h2>
-        <p class="subtitle">Local connection state for this session.</p>
+<div class="header">
+    <div class="logo-group">
+        <div class="status-indicator"></div>
+        <div class="logo">NETWORK <span>OPERATIONS</span></div>
+    </div>
+    <div class="time" id="clock">00:00:00</div>
+</div>
 
-        <div class="metric-card">
-            <span class="metric-title">Connection Status</span>
-            <span class="status-badge" id="onlineStatus">Online</span>
-        </div>
-
-        <div class="metric-card">
-            <span class="metric-title">Effective Network Type</span>
-            <span class="metric-value" id="networkType">Checking...</span>
-        </div>
-
-        <div class="metric-card">
-            <span class="metric-title">Estimated Downlink</span>
-            <span class="metric-value" id="downlinkSpeed">Checking...</span>
-        </div>
-
-        <div class="metric-card">
-            <span class="metric-title">Round-Trip Time (RTT)</span>
-            <span class="metric-value" id="rttLatency">Checking...</span>
-        </div>
-
-        <button class="btn" onclick="refreshMetrics()">Run Speed Test / Refresh</button>
+<div class="cards">
+    <div class="card">
+        <h2>Active Nodes</h2>
+        <span id="u">152</span>
     </div>
 
-    <script>
-        function refreshMetrics() {
-            const statusBadge = document.getElementById('onlineStatus');
-            const networkType = document.getElementById('networkType');
-            const downlinkSpeed = document.getElementById('downlinkSpeed');
-            const rttLatency = document.getElementById('rttLatency');
+    <div class="card">
+        <h2>Total Stream</h2>
+        <span id="c">980</span>
+    </div>
 
-            // Check basic online status
-            if (navigator.onLine) {
-                statusBadge.textContent = "Online";
-                statusBadge.style.backgroundColor = "rgba(34, 197, 94, 0.2)";
-                statusBadge.style.color = "#22c55e";
-            } else {
-                statusBadge.textContent = "Offline";
-                statusBadge.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
-                statusBadge.style.color = "#ef4444";
-            }
+    <div class="card">
+        <h2>Global Zones</h2>
+        <span>68</span>
+    </div>
 
-            // Access Network Information API if supported by browser
-            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    <div class="card">
+        <h2>Network Health</h2>
+        <span style="color: var(--accent-green);">99.4%</span>
+    </div>
+</div>
 
-            if (conn) {
-                networkType.textContent = conn.effectiveType ? conn.effectiveType.toUpperCase() : "Unknown";
-                downlinkSpeed.textContent = conn.downlink ? `${conn.downlink} Mbps` : "N/A";
-                rttLatency.textContent = conn.rtt ? `${conn.rtt} ms` : "N/A";
-            } else {
-                networkType.textContent = "API Not Supported";
-                downlinkSpeed.textContent = "N/A";
-                rttLatency.textContent = "N/A";
-            }
-        }
+<div class="map-container" id="map">
+    <div class="grid-overlay"></div>
 
-        // Run on page load
-        window.addEventListener('load', refreshMetrics);
-        window.addEventListener('online', refreshMetrics);
-        window.addEventListener('offline', refreshMetrics);
-    </script>
+    <!-- Central Point -->
+    <div class="central-node"></div>
+
+    <!-- Vector Connections -->
+    <div class="line" style="left:50%;top:50%;width:240px;transform:rotate(-25deg);"></div>
+    <div class="dot" style="left:72%;top:40%"></div>
+
+    <div class="line" style="left:50%;top:50%;width:180px;transform:rotate(45deg);"></div>
+    <div class="dot" style="left:63%;top:71%"></div>
+
+    <div class="line" style="left:50%;top:50%;width:220px;transform:rotate(140deg);"></div>
+    <div class="dot" style="left:27%;top:64%"></div>
+
+    <div class="line" style="left:50%;top:50%;width:200px;transform:rotate(-135deg);"></div>
+    <div class="dot" style="left:32%;top:26%"></div>
+</div>
+
+<script>
+function updateClock() {
+    document.getElementById("clock").innerText = new Date().toLocaleTimeString();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Simulated metric variation for dashboard feel
+setInterval(() => {
+    document.getElementById("u").innerText = 150 + Math.floor(Math.random() * 25);
+    document.getElementById("c").innerText = 950 + Math.floor(Math.random() * 150);
+}, 2500);
+</script>
+
 </body>
-                </html>
-                
+</html>
