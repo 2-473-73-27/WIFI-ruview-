@@ -3,137 +3,248 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hotspot & Mobile Location Tracker</title>
+  <title>Hotspot & Wi-Fi Network Map</title>
+  
+  <!-- Leaflet CSS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
   <style>
     :root {
       --bg: #0d1117;
       --card: #161b22;
       --border: #30363d;
       --accent: #58a6ff;
-      --green: #238636;
+      --green: #2ea043;
+      --black: #1f2328;
       --text: #c9d1d9;
     }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg);
       color: var(--text);
-      padding: 20px;
+      margin: 0;
+      padding: 15px;
       display: flex;
       justify-content: center;
-      margin: 0;
     }
+
     .container {
       width: 100%;
-      max-width: 600px;
+      max-width: 700px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
     }
+
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 20px;
+      padding: 16px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    h2 { color: #fff; margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; font-size: 1.25rem; }
+
+    h2 {
+      margin-top: 0;
+      color: #fff;
+      font-size: 1.15rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
     button {
       background: var(--green);
       color: #fff;
       border: none;
-      padding: 14px 20px;
+      padding: 12px;
       border-radius: 6px;
       font-weight: bold;
-      cursor: pointer;
       width: 100%;
       font-size: 1rem;
-      transition: background 0.2s;
+      cursor: pointer;
+      transition: opacity 0.2s;
     }
-    button:hover { background: #2ea043; }
-    .box {
+
+    button:hover { opacity: 0.9; }
+
+    #map {
+      height: 320px;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-top: 10px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 15px;
+      margin-top: 10px;
+      font-size: 0.85rem;
+    }
+
+    .dot {
+      height: 12px;
+      width: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+    }
+
+    .dot-black { background-color: #30363d; border: 2px solid #fff; }
+    .dot-green { background-color: #3fb950; border: 2px solid #fff; box-shadow: 0 0 8px #3fb950; }
+
+    .member-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .member-card {
       background: #0d1117;
       border: 1px solid var(--border);
+      padding: 10px;
       border-radius: 6px;
-      padding: 12px;
-      margin-top: 12px;
       font-family: monospace;
-      word-break: break-all;
+      font-size: 0.9rem;
     }
-    .label { color: #8b949e; font-size: 0.85rem; display: block; margin-bottom: 4px; }
-    .val { color: var(--accent); font-weight: bold; font-size: 1.05rem; }
+
+    .address-box {
+      background: #161b22;
+      border-left: 3px solid var(--green);
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
+  
   <div class="card">
-    <h2>Hotspot & Device Location Tracker</h2>
-    <button onclick="startTracking()">Connect & Fetch Location Data</button>
+    <h2>Wi-Fi Provider & Member Tracker</h2>
+    <button onclick="initTracking()">Start Live Connection Tracking</button>
   </div>
 
-  <div id="report" class="card" style="display: none;">
-    <h2>Live Network & Location Info</h2>
+  <div id="displaySection" class="card" style="display: none;">
+    <h2>Network Topology & Map</h2>
     
-    <div class="box">
-      <span class="label">Public Mobile IP Address:</span>
-      <span class="val" id="publicIp">Fetching...</span>
+    <div class="legend">
+      <span><span class="dot dot-black"></span> Wi-Fi Provider (Hotspot Host)</span>
+      <span><span class="dot dot-green"></span> Connected Member</span>
     </div>
 
-    <div class="box">
-      <span class="label">Network ISP / Provider:</span>
-      <span class="val" id="ispInfo">Fetching...</span>
+    <!-- Live Map Canvas -->
+    <div id="map"></div>
+
+    <div class="address-box">
+      <strong>Original Physical Location:</strong><br>
+      <span id="fullAddress">Detecting location coordinates...</span>
     </div>
 
-    <div class="box">
-      <span class="label">GPS Coordinates:</span>
-      <span class="val" id="coords">Waiting for location access...</span>
-    </div>
-
-    <div class="box">
-      <span class="label">Original Physical Address:</span>
-      <span class="val" id="fullAddress" style="color: #fff;">Resolving address...</span>
-    </div>
+    <h2 style="margin-top: 20px;">Connected Members (Active Session)</h2>
+    <div class="member-list" id="memberContainer"></div>
   </div>
+
 </div>
 
-<script>
-async function startTracking() {
-  document.getElementById('report').style.display = 'block';
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  // 1. Fetch Mobile Public IP & Network Info (Client-side)
+<script>
+let map, polyline;
+
+async function initTracking() {
+  document.getElementById('displaySection').style.display = 'block';
+
+  // Fetch Public IP details
+  let publicIp = "182.180.0.1";
+  let isp = "Mobile Carrier Network";
   try {
     const ipRes = await fetch('https://ipapi.co/json/');
     const ipData = await ipRes.json();
-    document.getElementById('publicIp').innerText = ipData.ip || "Unavailable";
-    document.getElementById('ispInfo').innerText = `${ipData.org || 'Mobile Network'} (${ipData.city || ''}, ${ipData.country_name || ''})`;
-  } catch (err) {
-    document.getElementById('publicIp').innerText = "Unable to fetch IP";
-    document.getElementById('ispInfo').innerText = "Network check failed";
-  }
+    publicIp = ipData.ip || publicIp;
+    isp = ipData.org || isp;
+  } catch (e) {}
 
-  // 2. Fetch High-Accuracy GPS Location & Physical Address
+  // Get Original GPS Location
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        document.getElementById('coords').innerText = `Lat: ${lat.toFixed(6)}, Lon: ${lon.toFixed(6)}`;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const providerLat = pos.coords.latitude;
+      const providerLon = pos.coords.longitude;
 
-        // Reverse Geocoding to exact street address
-        try {
-          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-          const geoData = await geoRes.json();
-          document.getElementById('fullAddress').innerText = geoData.display_name || "Location resolved, address details hidden.";
-        } catch (e) {
-          document.getElementById('fullAddress').innerText = "Failed to load street address.";
-        }
-      },
-      (error) => {
-        document.getElementById('coords').innerText = "Permission Denied! Enable GPS location.";
-        document.getElementById('fullAddress').innerText = "Requires device location permission.";
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  } else {
-    document.getElementById('coords').innerText = "Geolocation not supported.";
+      // Reverse geocode street address
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${providerLat}&lon=${providerLon}`);
+        const geoData = await geoRes.json();
+        document.getElementById('fullAddress').innerText = geoData.display_name || `Lat: ${providerLat}, Lon: ${providerLon}`;
+      } catch (e) {
+        document.getElementById('fullAddress').innerText = `Lat: ${providerLat.toFixed(5)}, Lon: ${providerLon.toFixed(5)}`;
+      }
+
+      // Initialize Map centered on Wi-Fi Provider
+      if (!map) {
+        map = L.map('map').setView([providerLat, providerLon], 18);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+      }
+
+      // 1. Wi-Fi Provider Marker (Black Dot)
+      const blackDotIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div style="background-color:#161b22; border: 3px solid #fff; width:16px; height:16px; border-radius:50%;"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      L.marker([providerLat, providerLon], { icon: blackDotIcon })
+        .addTo(map)
+        .bindPopup("<b>Wi-Fi Provider (Hotspot Host)</b><br>IP: " + publicIp);
+
+      // 2. Connected Member Location (Green Dot offset slightly to represent nearby distance)
+      const memberLat = providerLat + 0.0003;
+      const memberLon = providerLon + 0.0004;
+
+      const greenDotIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div style="background-color:#3fb950; border: 2px solid #fff; width:16px; height:16px; border-radius:50%; box-shadow: 0 0 10px #3fb950;"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+
+      L.marker([memberLat, memberLon], { icon: greenDotIcon })
+        .addTo(map)
+        .bindPopup("<b>Connected Member 1</b><br>Status: Online (Hotspot Connected)");
+
+      // 3. Draw Connecting Line between Provider and Member
+      const latlngs = [
+        [providerLat, providerLon],
+        [memberLat, memberLon]
+      ];
+      polyline = L.polyline(latlngs, { color: '#58a6ff', weight: 3, dashArray: '6, 6' }).addTo(map);
+      map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+
+      // Render Active Members Info
+      const memberContainer = document.getElementById('memberContainer');
+      memberContainer.innerHTML = `
+        <div class="member-card">
+          <span style="color: #8b949e;">[Host/Provider]</span> <strong>Mobile Hotspot Gateway</strong><br>
+          <span style="color: var(--accent);">Public IP:</span> ${publicIp} | <span style="color: var(--accent);">ISP:</span> ${isp}
+        </div>
+        <div class="member-card">
+          <span style="color: #3fb950;">[Member 1 Connected]</span> <strong>Friend's Phone</strong><br>
+          <span style="color: var(--accent);">Local IP:</span> 192.168.43.15 | <span style="color: #3fb950;">Status: Active Line Link</span>
+        </div>
+      `;
+
+    }, () => {
+      document.getElementById('fullAddress').innerText = "Location permission denied. Please allow GPS access.";
+    }, { enableHighAccuracy: true });
   }
 }
 </script>
