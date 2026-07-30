@@ -1,9 +1,0 @@
-CREATE TABLE IF NOT EXISTS `temp_emails` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `recipient` VARCHAR(255) NOT NULL,
-  `sender` VARCHAR(255) NOT NULL,
-  `subject` VARCHAR(255) DEFAULT '',
-  `body` TEXT,
-  `otp_code` VARCHAR(20) DEFAULT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
